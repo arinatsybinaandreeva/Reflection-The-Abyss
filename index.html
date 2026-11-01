@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рефлексия: Бездна</title>
+    <style>
+        * { box-sizing: border-box; font-family: 'Segoe UI', Tahoma, sans-serif; margin: 0; padding: 0; }
+        body { background: #050505; background-image: radial-gradient(circle at 50% 0%, #1a1a2e 0%, #000 100%); color: #d0d0d0; display: flex; justify-content: center; align-items: center; min-height: 100vh; padding: 10px; overflow-x: hidden; }
+        .game-container { width: 100%; max-width: 750px; display: flex; flex-direction: column; gap: 10px; position: relative; z-index: 2; }
+        .glass { background: rgba(20, 20, 30, 0.8); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.8); padding: 15px; }
+        .status-bar { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 0.8rem; }
+        .stat { display: flex; align-items: center; gap: 5px; flex: 1; min-width: 90px; }
+        .progress-bar { flex-grow: 1; height: 6px; background: rgba(255,255,255,0.1); border-radius: 3px; overflow: hidden; }
+        .fill { height: 100%; transition: width 0.4s ease; }
+        .fill.health { background: #ff3333; box-shadow: 0 0 8px #ff3333; }
+        .fill.energy { background: #33ff77; box-shadow: 0 0 8px #33ff77; }
+        .fill.reflection { background: #3388ff; box-shadow: 0 0 8px #3388ff; }
+        .fill.calm { background: #b333ff; box-shadow: 0 0 8px #b333ff; }
+        .fill.hunger { background: #ffaa00; box-shadow: 0 0 8px #ffaa00; }
+        .money-display { text-align: center; font-size: 1.2rem; font-weight: bold; color: #ffd700; text-shadow: 0 0 10px rgba(255, 215, 0, 0.5); padding: 5px; border-bottom: 1px solid #333; margin-bottom: 5px; }
+        .level-indicator { text-align: center; font-size: 1.1rem; font-weight: bold; text-transform: uppercase; letter-spacing: 2px; padding: 10px; border-radius: 8px; margin-bottom: 5px; }
+        .level-hard { background: rgba(255, 50, 50, 0.15); color: #ff5555; border: 1px solid #ff3333; }
+        .level-medium { background: rgba(255, 150, 50, 0.15); color: #ffaa55; border: 1px solid #ff9933; }
+        .level-light { background: rgba(50, 255, 100, 0.15); color: #55ff88; border: 1px solid #33ff77; }
+        .level-remission { background: rgba(50, 150, 255, 0.15); color: #55aaff; border: 1px solid #3388ff; }
+        #story-text { font-size: 0.95rem; line-height: 1.6; margin: 10px 0; padding: 15px; background: rgba(0,0,0,0.6); border-left: 4px solid #555; border-radius: 4px; min-height: 130px; }
+        .actions-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 10px; }
+        .action-btn { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); color: #ddd; padding: 12px; border-radius: 8px; cursor: pointer; transition: 0.2s; text-align: left; font-size: 0.85rem; }
+        .action-btn:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+        .action-btn.selected { border-color: #3388ff; background: rgba(51,136,255,0.15); }
+        .action-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+        .choice-btn { display: block; width: 100%; padding: 12px; margin: 6px 0; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); color: #fff; border-radius: 6px; cursor: pointer; text-align: left; transition: 0.2s; font-size: 0.9rem; }
+        .choice-btn:hover { background: rgba(51,136,255,0.2); border-color: #3388ff; }
+        .main-btn { width: 100%; padding: 15px; background: #3388ff; color: #fff; border: none; border-radius: 8px; font-weight: bold; font-size: 1rem; cursor: pointer; margin-top: 10px; transition: 0.2s; }
+        .main-btn:hover { background: #55aaff; box-shadow: 0 0 15px rgba(51,136,255,0.4); }
+        .hidden { display: none !important; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.95); display: flex; justify-content: center; align-items: center; z-index: 100; padding: 15px; }
+        .modal-content { width: 100%; max-width: 500px; background: #111; border: 1px solid #333; border-radius: 12px; padding: 20px; text-align: left; }
+        .thought { color: #ff5555; font-style: italic; background: rgba(255,50,50,0.1); padding: 10px; border-radius: 6px; margin: 10px 0; }
+        .feedback-correct { color: #55ff88; margin-top: 10px; font-weight: bold; }
+        .feedback-wrong { color: #ff5555; margin-top: 10px; font-weight: bold; }
+        #critic-overlay { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 15rem; opacity: 0; pointer-events: none; z-index: 0; filter: drop-shadow(0 0 30px #ff0000); transition: opacity 1s; }
+        .critic-active { opacity: 0.15; animation: pulse 2s infinite; }
+        @keyframes pulse { 0% { transform: translate(-50%, -50%) scale(1); } 50% { transform: translate(-50%, -50%) scale(1.1); } 100% { transform: translate(-50%, -50%) scale(1); } }
+    </style>
+</head>
+<body>
+
+    <div id="critic-overlay">🎃</div>
+
+    <div class="game-container">
+        <header class="status-bar glass">
+            <div class="stat"><span>❤️</span><div class="progress-bar"><div id="health-bar" class="fill health" style="width: 60%"></div></div></div>
+            <div class="stat"><span>🔋</span><div class="progress-bar"><div id="energy-bar" class="fill energy" style="width: 50%"></div></div></div>
+            <div class="stat"><span>🧠</span><div class="progress-bar"><div id="reflection-bar" class="fill reflection" style="width: 0%"></div></div></div>
+            <div class="stat"><span>🧘</span><div class="progress-bar"><div id="calm-bar" class="fill calm" style="width: 30%"></div></div></div>
+            <div class="stat"><span>🍔</span><div class="progress-bar"><div id="hunger-bar" class="fill hunger" style="width: 70%"></div></div></div>
+        </header>
+
+        <div class="money-display" id="money-display">💰 Баланс: 1500 руб.</div>
+
+        <main class="main-screen glass">
+            <div id="level-indicator" class="level-indicator level-hard">УРОВЕНЬ 1: ТЯЖЕЛАЯ ДЕПРЕССИЯ</div>
+            <div id="story-text">Ты просыпаешься. Внутри — черная дыра. Энергии нет. Мозг требует смерти. Это не ты, это болезнь. Выбери 3 действия, чтобы дожить до завтра.</div>
+            
+            <div id="action-container">
+                <div class="actions-grid" id="actions-grid">
+                    <button class="action-btn" onclick="selectAction('work')">💼 Работа</button>
+                    <button class="action-btn" onclick="selectAction('sleep')">🛌 Сон</button>
+                    <button class="action-btn" onclick="selectAction('train')">🏋️ Спорт</button>
+                    <button class="action-btn" onclick="selectAction('food')">🍔 Магазин</button>
+                    <button class="action-btn" onclick="selectAction('social')">☕ Общение</button>
+                    <button class="action-btn" onclick="selectAction('analyze')">📖 КПТ Дневник</button>
+                    <button class="action-btn" onclick="selectAction('rest')">📺 Отдых</button>
+                </div>
+            </div>
+            
+            <button id="next-day-btn" class="main-btn hidden" onclick="nextDay()">Завершить день ➔</button>
+            <div id="status-msg" style="text-align:center; font-size:0.85rem; color:#aaa; margin-top:5px; min-height: 20px;"></div>
+        </main>
+    </div>
+
+    <!-- Модалка КПТ -->
+    <div id="diary-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="color:#3388ff; margin-bottom:10px;">📓 Дневник КПТ</h2>
+            <p style="font-size:0.85rem; color:#aaa;">Ситуация: <span id="diary-situation"></span></p>
+            <p class="thought" id="diary-thought"></p>
+            <p style="font-size:0.9rem; margin: 10px 0; color:#ddd;">Выбери когнитивное искажение:</p>
+            <div id="diary-options"></div>
+            <div id="diary-result" class="hidden">
+                <p id="diary-feedback"></p>
+                <button class="main-btn" onclick="closeDiary()">Закрыть дневник</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Модалка Действий -->
+    <div id="action-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 id="action-modal-title" style="color:#ffaa55; margin-bottom:15px;"></h2>
+            <p id="action-modal-desc" style="font-size:0.9rem; color:#aaa; margin-bottom:15px;"></p>
+            <div id="action-modal-options"></div>
+        </div>
+    </div>
+
+    <!-- Модалка Общения -->
+    <div id="social-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2 style="color:#ffaa55; margin-bottom:10px;">☕ Общение</h2>
+            <p id="social-situation" style="margin-bottom:15px; font-size:0.95rem;"></p>
+            <div id="social-options"></div>
+        </div>
+    </div>
+
+    <!-- Смерть -->
+    <div id="death-modal" class="modal hidden">
+        <div class="modal-content" style="text-align:center; border-color: #ff3333;">
+            <h2 style="color:#ff3333; font-size:2rem;">💀 СМЕРТЬ</h2>
+            <p id="death-reason" style="margin: 20px 0; color:#aaa; font-size:0.9rem;"></p>
+            <button class="main-btn" style="background:#333;" onclick="location.reload()">Начать заново</button>
+        </div>
+    </div>
+
+    <!-- Победа -->
+    <div id="win-modal" class="modal hidden">
+        <div class="modal-content" style="text-align:center; border-color: #3388ff;">
+            <h2 style="color:#3388ff; font-size:2rem;">☀️ РЕМИССИЯ</h2>
+            <p style="margin: 20px 0; color:#ddd; font-size:0.9rem;">Ты прошел(ла) через ад. Ты научился(ась) справляться с триггерами, ставить границы и перепрошивать нейронные связи. Депрессия отступает. Ты сильнее.</p>
+            <p style="color:#55ff88; font-size:1.2rem; font-weight:bold;">Ты — оригинал. Ты спас(ла) себя.</p>
+            <button class="main-btn" style="margin-top:20px;" onclick="location.reload()">Пройти путь снова</button>
+        </div>
+    </div>
+
+    <script>
+// === БАЗА СОБЫТИЙ (500+) ===
+        const prefixes = [
+            "Утро началось с того, что", "Днём ты столкнулся(ась) с тем, что", "Вечером произошло:", "Внезапно", 
+            "Ты заметил(а), что", "Сегодня", "С утра пораньше", "После обеда", "Ночью тебе приснилось, что", 
+            "В этот раз", "Сегодня днем", "Поздним вечером", "На рассвете", "В обеденный перерыв", 
+            "Перед сном", "В самый неожиданный момент", "Ты и не заметил(а), как", "С утра пораньше", 
+            "После работы", "В выходной день", "На прогулке", "В душе", "За завтраком", "По дороге домой",
+            "Вспоминая прошлое, ты понял(а), что", "Смотря в окно, ты заметил(а), что", "В очереди ты услышал(а), что"
+        ];
+        const events = [
+            "твой внутренний критик (Тыква) шепчет: «Ты ничтожество, у тебя ничего не получится».", 
+            "бывшие друзья выложили фото, где веселятся без тебя.",
+            "коллега прошел мимо и не поздоровался, и мозг сразу дорисовал: «Он тебя ненавидит».", 
+            "партнер написал сухо: «Ок». Ты чувствуешь тревогу и думаешь, что он тебя бросит.",
+            "ты увидел(а) успешного человека в соцсетях и почувствовал(а) зависть и пустоту.", 
+            "кто-то нарушил твои границы: взял твою вещь без спроса.",
+            "ты вспомнил(а) детскую травму, и стало больно, захотелось убежать в фантазии.", 
+            "в чате обсуждают человека за спиной и зовут тебя посплетничать.",
+            "ты проснулся(ась) с мыслью: «Я не хочу жить». Это симптом болезни, а не факт.", 
+            "ты чувствуешь физическую боль в груди — это психосоматика.",
+            "тебя критикуют, и ты чувствуешь стыд. Это проекция их страхов на тебя.", 
+            "на работе аврал, все в панике, и твоя миндалина активировалась.",
+            "ты не выполнил(а) план на день и начинаешь себя ругать за лень.", 
+            "ты чувствуешь апатию, и мозг требует быстрого дофамина (скроллинг, сахар).",
+            "тебе напомнили о прошлой ошибке, и ты снова прокручиваешь её в голове.", 
+            "ты остался(ась) один(а) в тишине, и тревога стала громче.",
+            "ты увидел(а) счастливую пару и почувствовал(а) одиночество.", 
+            "тебе предложили помощь, но ты отказался(ась) из гордости.",
+            "ты сорвался(ась) на близкого человека и теперь чувствуешь вину.", 
+            "ты не можешь уснуть, мысли крутятся по кругу.",
+            "тебя похвалили, но ты не поверил(а) и обесценил(а) комплимент.", 
+            "ты опоздал(а) на встречу и чувствуешь, что всё испортил(а).",
+            "ты увидел(а) идеальную жизнь блогера и почувствовал(а) себя неудачником.", 
+            "твой телефон разрядился в самый нужный момент.",
+            "ты забыл(а) важную вещь дома и разозлился(ась) на себя.", 
+            "на улице пошел дождь без зонта.",
+            "ты не выспался(ась), и всё раздражает.", 
+            "ты нашел(ла) старую переписку, которая вызвала боль.",
+            "тебе сделали комплимент, и ты почувствовал(а) тепло.", 
+            "ты увидел(а) красивый закат и на секунду почувствовал(а) покой.",
+            "тебе приснился кошмар, и ты проснулся(ась) в холодном поту.", 
+            "кто-то из прошлого написал тебе, и это вызвало тревогу.",
+            "ты почувствовал(а) зависть к чужому успеху и устыдился(ась) этого.", 
+            "ты пропустил(а) важный звонок и теперь паникуешь.",
+            "ты не можешь найти мотивацию даже на простое дело.", 
+            "ты чувствуешь, что тебя никто не понимает.",
+            "ты хочешь спрятаться от всего мира.", 
+            "ты чувствуешь, что твое тело одеревенело.",
+            "ты читаешь новости и чувствуешь безнадежность.", 
+            "ты видишь, как другие достигают успеха, и чувствуешь себя хуже."
+        ];
+        function getRandomEvent() { 
+            return prefixes[Math.floor(Math.random()*prefixes.length)] + " " + events[Math.floor(Math.random()*events.length)]; 
+        }
+
+        let player = { health: 60, energy: 40, reflection: 0, calm: 20, hunger: 70, money: 1500, day: 1, stage: 1, actionsTaken: [], maxActions: 3, todayEvent: "", eventPenalty: 1, eventBonus: 0, reflectionNeeded: 100 };
+// === БАЗА КПТ (500+) ===
+        const cbtSituations = [
+            "Ты увидел(а) фото друзей без тебя", "Коллега не поздоровался", "Ты не выполнил(а) план", "Партнер написал сухо", 
+            "Ты видишь успешного человека", "Тебя похвалили", "Ты опоздал(а)", "Ты допустил(а) ошибку", 
+            "Ты вспомнил(а) травму", "Кто-то нарушил границы", "Тебе не ответили на сообщение", "Ты не получил(а) работу", 
+            "Тебя раскритиковали", "Ты сравнил(а) себя с другими", "Ты не смог(ла) помочь другу", "Тебя проигнорировали в чате",
+            "Ты увидел(а) идеальную жизнь блогера", "Кто-то обесценил твои чувства", "Тебе напомнили о прошлой ошибке", "Ты остался(ась) один(а)",
+            "Ты опоздал(а) на встречу", "Коллега повысил голос", "Партнер отменил планы", "Ты получил(а) отказ", "Ты не справился(ась) с задачей",
+            "Кто-то сказал тебе грубость", "Ты забыл(а) о важном деле", "Тебя не пригласили на праздник", "Ты почувствовал(а) себя неловко", "Ты сравнил(а) себя с бывшим(ей)"
+        ];
+        const cbtThoughts = [
+            "Меня никто не любит. Я всегда буду один(а).", "Он специально меня игнорирует, чтобы унизить.", 
+            "Я ленивый кусок, у меня нет силы воли.", "Он меня бросит. Это конец.", 
+            "Я ничтожество по сравнению с ним.", "Они просто вежливы. На самом деле я плохой.", 
+            "Я все испортил(а). Теперь все будут думать, что я безответственный.", "Я не смогу найти работу.", 
+            "Это случилось из-за меня.", "Мир несправедлив ко мне.", "Я обуза для всех.", "У меня ничего не получится.",
+            "Я не заслуживаю любви.", "Все всегда уходят.", "Я слабый(ая) и бесполезный(ая).", "Я не справлюсь.",
+            "Я всегда все порчу.", "Я недостаточно хорош(а).", "Я не достоин(на) счастья.", "Я никогда не выберусь."
+        ];
+        const cbtDistortions = [
+            "Сверхобобщение", "Чтение мыслей", "Долженствование", "Катастрофизация", 
+            "Сравнение", "Обесценивание позитива", "Персонализация", "Черно-белое мышление", 
+            "Предсказание будущего", "Эмоциональное обоснование", "Навешивание ярлыков", "Фильтрация негатива",
+            "Преувеличение", "Преуменьшение", "Обвинение"
+        ];
+        
+        function getRandomCBT() {
+            const sit = cbtSituations[Math.floor(Math.random()*cbtSituations.length)];
+            const th = cbtThoughts[Math.floor(Math.random()*cbtThoughts.length)];
+            const correct = cbtDistortions[Math.floor(Math.random()*cbtDistortions.length)];
+            let wrong = cbtDistortions.filter(d => d !== correct).sort(() => Math.random() - 0.5);
+            return { situation: sit, thought: th, correct: correct, options: [correct, wrong[0], wrong[1]].sort(() => Math.random() - 0.5), explanation: "Верно. Это когнитивное искажение." };
+        }
+// === БАЗА ОБЩЕНИЯ (50+ диалогов) ===
+        const socialData = [
+            { text: "Знакомый язвительно шутит над тобой", options: [ { text: "Промолчать и накопить обиду", health: -15, energy: -10, msg: "Подавленная агрессия разрушает тебя." }, { text: "Сказать: «Мне неприятны такие шутки»", health: 15, energy: -5, msg: "Ассертивность. Ты поставил(а) границу." }, { text: "Начать сплетничать в ответ", health: -10, energy: -15, msg: "Ты втянулся(ась) в игры стаи." } ] },
+            { text: "Бывший партнер пишет: «Я скучаю»", options: [ { text: "Ответить и начать общение", health: -25, energy: -15, msg: "Травматическая связь. Качели «тепло-холод»." }, { text: "Заблокировать и не отвечать", health: 20, reflection: 15, msg: "Ты выбрал(а) себя. Это защищает твой ресурс." }, { text: "Написать ему гневное сообщение", health: -10, energy: -20, msg: "Ты тратишь свою энергию на его проблемы." } ] },
+            { text: "Коллега просит сделать его работу", options: [ { text: "Согласиться, чтобы не обидеть", health: -15, energy: -25, msg: "Ты нарушил(а) свои границы. Выгорание." }, { text: "Отказать вежливо, но твердо", health: 15, energy: 5, msg: "Ты сохранил(а) свой ресурс." }, { text: "Сделать, но потом злиться", health: -20, energy: -15, msg: "Пассивная агрессия к себе." } ] },
+            { text: "Друг зовет на вечеринку, но ты устал(а)", options: [ { text: "Пойти через силу", health: -10, energy: -15, msg: "Ты истощил(а) себя." }, { text: "Отказаться и отдохнуть", health: 10, energy: 10, msg: "Ты выбрал(а) себя." }, { text: "Сказать, что придешь, но не прийти", health: -15, energy: -5, msg: "Чувство вины." } ] },
+            { text: "Родственник критикует твои выборы", options: [ { text: "Спорить и защищаться", health: -10, energy: -15, msg: "Ты тратишь энергию впустую." }, { text: "Сказать «Я тебя услышал(а)» и уйти", health: 10, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Согласиться, чтобы отстали", health: -15, energy: -5, msg: "Ты предал(а) себя." } ] },
+            { text: "Тебя игнорируют в чате", options: [ { text: "Спросить, все ли в порядке", health: 5, energy: -5, msg: "Ты прояснил(а) ситуацию." }, { text: "Обидеться и выйти из чата", health: -10, energy: -10, msg: "Ты действовал(а) на эмоциях." }, { text: "Не обращать внимания", health: 0, energy: 0, msg: "Ты не тратишь энергию." } ] },
+            { text: "Тебе делают комплимент", options: [ { text: "Поблагодарить", health: 10, energy: 5, msg: "Ты принял(а) позитив." }, { text: "Обесценить: «Да ладно, ничего особенного»", health: -10, energy: -5, msg: "Ты оттолкнул(а) хорошее." }, { text: "Заподозрить насмешку", health: -15, energy: -10, msg: "Паранойя." } ] },
+            { text: "Кто-то сплетничает о тебе", options: [ { text: "Поговорить с человеком напрямую", health: 10, energy: -10, msg: "Ты решил(а) конфликт." }, { text: "Начать сплетничать в ответ", health: -15, energy: -15, msg: "Ты упал(а) на их уровень." }, { text: "Проигнорировать", health: 0, energy: 0, msg: "Ты сохранил(а) энергию." } ] },
+            { text: "Друг просит денег в долг", options: [ { text: "Дать, даже если неудобно", health: -10, energy: -10, msg: "Ты нарушил(а) границы." }, { text: "Отказать, объяснив причину", health: 10, energy: -5, msg: "Ты сохранил(а) ресурс." }, { text: "Соврать, что нет денег", health: -5, energy: -5, msg: "Ты создал(а) напряжение." } ] },
+            { text: "Тебя приглашают на свидание", options: [ { text: "Согласиться", health: 10, energy: 5, msg: "Ты открыт(а) новому." }, { text: "Отказаться", health: 0, energy: 0, msg: "Ты выбрал(а) покой." }, { text: "Согласиться, но потом отменить", health: -10, energy: -5, msg: "Ты вызвал(а) разочарование." } ] },
+            { text: "Коллега повышает голос", options: [ { text: "Ответить тем же", health: -10, energy: -15, msg: "Конфликт." }, { text: "Спокойно сказать: «Не кричи на меня»", health: 15, energy: -5, msg: "Ассертивность." }, { text: "Замолчать и уйти", health: -5, energy: -5, msg: "Ты подавил(а) эмоции." } ] },
+            { text: "Тебя не пригласили на встречу", options: [ { text: "Спросить, почему", health: 0, energy: -5, msg: "Ты прояснил(а) ситуацию." }, { text: "Обидеться", health: -10, energy: -10, msg: "Ты накрутил(а) себя." }, { text: "Заняться своими делами", health: 10, energy: 5, msg: "Ты не тратишь энергию." } ] },
+            { text: "Друг отменил планы", options: [ { text: "Расстроиться и сказать об этом", health: -5, energy: -5, msg: "Ты выразил(а) чувства." }, { text: "Сказать: «Ничего страшного» и затаить обиду", health: -15, energy: -10, msg: "Пассивная агрессия." }, { text: "Найти другие планы", health: 10, energy: 5, msg: "Ты адаптировался(ась)." } ] },
+            { text: "Тебя обвиняют в том, чего ты не делал(а)", options: [ { text: "Защищаться и доказывать", health: -10, energy: -15, msg: "Ты тратишь энергию." }, { text: "Спокойно сказать: «Это не так»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Промолчать", health: -15, energy: -5, msg: "Ты принял(а) чужую вину." } ] },
+            { text: "Кто-то вызывает у тебя чувство вины", options: [ { text: "Извиняться", health: -10, energy: -10, msg: "Ты принял(а) чужую вину." }, { text: "Сказать: «Я не буду чувствовать вину за это»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Уйти от разговора", health: 0, energy: -5, msg: "Ты избежал(а) конфликта." } ] },
+            { text: "Тебе говорят: «Ты изменился(ась) в худшую сторону»", options: [ { text: "Спросить, что именно изменилось", health: 5, energy: -5, msg: "Ты прояснил(а) ситуацию." }, { text: "Обидеться", health: -10, energy: -10, msg: "Ты накрутил(а) себя." }, { text: "Сказать: «Это твое мнение»", health: 10, energy: -5, msg: "Ты сохранил(а) границы." } ] },
+            { text: "Коллега присваивает твои заслуги", options: [ { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) гнев." }, { text: "Сказать об этом руководителю", health: 10, energy: -10, msg: "Ты защитил(а) свои интересы." }, { text: "Устроить скандал", health: -10, energy: -15, msg: "Ты потерял(а) контроль." } ] },
+            { text: "Тебя просят о помощи в ущерб себе", options: [ { text: "Согласиться", health: -15, energy: -20, msg: "Ты нарушил(а) границы." }, { text: "Отказать", health: 10, energy: 5, msg: "Ты сохранил(а) ресурс." }, { text: "Согласиться, но потом пожалеть", health: -20, energy: -15, msg: "Ты предал(а) себя." } ] },
+            { text: "Кто-то обесценивает твои чувства", options: [ { text: "Сказать: «Мои чувства важны»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -10, energy: -10, msg: "Ты подавил(а) эмоции." }, { text: "Начать спорить", health: -5, energy: -15, msg: "Ты тратишь энергию." } ] },
+            { text: "Тебе говорят: «Соберись, тряпка»", options: [ { text: "Сказать: «Это не твое дело»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Попытаться «собраться»", health: -15, energy: -10, msg: "Ты истощил(а) себя." }, { text: "Заплакать", health: -5, energy: -10, msg: "Ты выразил(а) боль." } ] },
+            { text: "Друг рассказывает о своих успехах, пока тебе плохо", options: [ { text: "Порадоваться за него", health: 5, energy: -5, msg: "Ты проявил(а) эмпатию." }, { text: "Сказать, что тебе сейчас тяжело", health: 10, energy: -5, msg: "Ты честен(на) с собой." }, { text: "Обесценить его успехи", health: -15, energy: -10, msg: "Ты разрушаешь отношения." } ] },
+            { text: "Тебя игнорируют в компании", options: [ { text: "Спросить, что происходит", health: 5, energy: -5, msg: "Ты прояснил(а) ситуацию." }, { text: "Уйти домой", health: 5, energy: -5, msg: "Ты выбрал(а) себя." }, { text: "Обидеться и замкнуться", health: -15, energy: -10, msg: "Ты накрутил(а) себя." } ] },
+            { text: "Кто-то перебивает тебя в разговоре", options: [ { text: "Спокойно сказать: «Дай мне договорить»", health: 15, energy: -5, msg: "Ассертивность." }, { text: "Замолчать", health: -10, energy: -5, msg: "Ты подавил(а) эмоции." }, { text: "Начать кричать", health: -10, energy: -15, msg: "Конфликт." } ] },
+            { text: "Тебе не верят, когда ты говоришь о своей боли", options: [ { text: "Сказать: «Это правда, и мне больно»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) боль." }, { text: "Начать доказывать", health: -10, energy: -15, msg: "Ты тратишь энергию." } ] },
+            { text: "Тебя заставляют чувствовать себя неловко за отказ", options: [ { text: "Сказать: «Мой отказ — это мое право»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Согласиться через силу", health: -20, energy: -15, msg: "Ты предал(а) себя." }, { text: "Уйти", health: 0, energy: -5, msg: "Ты избежал(а) конфликта." } ] },
+            { text: "Кто-то использует твои слабости против тебя", options: [ { text: "Сказать: «Это подло»", health: 10, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты принял(а) удар." }, { text: "Ответить тем же", health: -10, energy: -15, msg: "Ты упал(а) на их уровень." } ] },
+            { text: "Тебя сравнивают с более успешным человеком", options: [ { text: "Сказать: «Мой путь уникален»", health: 15, energy: -5, msg: "Ты сохранил(а) самооценку." }, { text: "Согласиться и расстроиться", health: -15, energy: -10, msg: "Ты сравнил(а) себя с другими." }, { text: "Начать оправдываться", health: -10, energy: -10, msg: "Ты тратишь энергию." } ] },
+            { text: "Друг забыл о твоем важном событии", options: [ { text: "Сказать, что тебе обидно", health: 5, energy: -5, msg: "Ты выразил(а) чувства." }, { text: "Промолчать и затаить обиду", health: -15, energy: -10, msg: "Пассивная агрессия." }, { text: "Простить и отпустить", health: 10, energy: -5, msg: "Ты выбрал(а) покой." } ] },
+            { text: "Тебя просят быть «сильным» и не ныть", options: [ { text: "Сказать: «Я имею право на чувства»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Спрятать эмоции", health: -15, energy: -10, msg: "Ты подавил(а) боль." }, { text: "Заплакать", health: -5, energy: -10, msg: "Ты выразил(а) боль." } ] },
+            { text: "Кто-то манипулирует тобой через жалость", options: [ { text: "Сказать: «Это манипуляция»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Поддаться", health: -20, energy: -15, msg: "Ты нарушил(а) границы." }, { text: "Уйти", health: 0, energy: -5, msg: "Ты избежал(а) конфликта." } ] },
+            { text: "Тебя обвиняют в эгоизме за заботу о себе", options: [ { text: "Сказать: «Забота о себе — это не эгоизм»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Согласиться и перестать заботиться", health: -20, energy: -15, msg: "Ты предал(а) себя." }, { text: "Промолчать", health: -10, energy: -10, msg: "Ты подавил(а) эмоции." } ] },
+            { text: "Коллега шепчется за твоей спиной", options: [ { text: "Спросить, что происходит", health: 5, energy: -5, msg: "Ты прояснил(а) ситуацию." }, { text: "Проигнорировать", health: 0, energy: 0, msg: "Ты не тратишь энергию." }, { text: "Начать сплетничать в ответ", health: -15, energy: -15, msg: "Ты упал(а) на их уровень." } ] },
+            { text: "Тебе говорят: «Всем тяжело, а ты жалуешься»", options: [ { text: "Сказать: «Моя боль реальна»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) боль." }, { text: "Начать спорить", health: -10, energy: -15, msg: "Ты тратишь энергию." } ] },
+            { text: "Кто-то нарушает твое личное пространство", options: [ { text: "Сказать: «Мне нужно личное пространство»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Промолчать", health: -10, energy: -5, msg: "Ты подавил(а) дискомфорт." }, { text: "Начать кричать", health: -10, energy: -15, msg: "Конфликт." } ] },
+            { text: "Друг не отвечает на звонки, когда тебе плохо", options: [ { text: "Написать и сказать, что тебе нужна поддержка", health: 10, energy: -5, msg: "Ты попросил(а) о помощи." }, { text: "Обидеться и замкнуться", health: -15, energy: -10, msg: "Ты накрутил(а) себя." }, { text: "Найти другого человека", health: 5, energy: -5, msg: "Ты выбрал(а) себя." } ] },
+            { text: "Тебя высмеивают за твои интересы", options: [ { text: "Сказать: «Это мое дело»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Спрятать интересы", health: -15, energy: -10, msg: "Ты предал(а) себя." }, { text: "Начать оправдываться", health: -10, energy: -10, msg: "Ты тратишь энергию." } ] },
+            { text: "Кто-то обещает помочь и не выполняет обещание", options: [ { text: "Сказать: «Я расстроен(а)»", health: 5, energy: -5, msg: "Ты выразил(а) чувства." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) обиду." }, { text: "Начать мстить", health: -15, energy: -15, msg: "Ты упал(а) на их уровень." } ] },
+            { text: "Тебя ставят в неловкое положение публично", options: [ { text: "Сказать: «Это было неуместно»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) стыд." }, { text: "Заплакать", health: -5, energy: -10, msg: "Ты выразил(а) боль." } ] },
+            { text: "Друг спорит с твоими чувствами: «Ты все придумываешь»", options: [ { text: "Сказать: «Мои чувства реальны»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) боль." }, { text: "Начать спорить", health: -10, energy: -15, msg: "Ты тратишь энергию." } ] },
+            { text: "Тебя заставляют выбирать между людьми", options: [ { text: "Сказать: «Я не буду выбирать»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Согласиться", health: -15, energy: -10, msg: "Ты предал(а) себя." }, { text: "Уйти", health: 0, energy: -5, msg: "Ты избежал(а) конфликта." } ] },
+            { text: "Кто-то говорит: «Ты слишком чувствительный(ая)»", options: [ { text: "Сказать: «Я имею право на чувства»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -10, energy: -10, msg: "Ты подавил(а) эмоции." }, { text: "Начать оправдываться", health: -10, energy: -10, msg: "Ты тратишь энергию." } ] },
+            { text: "Тебя отчитывают как ребенка", options: [ { text: "Сказать: «Не говори со мной так»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) гнев." }, { text: "Начать кричать", health: -10, energy: -15, msg: "Конфликт." } ] },
+            { text: "Друг просит совета и не слушает его", options: [ { text: "Сказать: «Я вижу, ты не готов(а) слушать»", health: 10, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Продолжать советовать", health: -10, energy: -15, msg: "Ты тратишь энергию." }, { text: "Обидеться", health: -10, energy: -10, msg: "Ты накрутил(а) себя." } ] },
+            { text: "Тебя обвиняют в том, что ты не оправдал(а) ожидания", options: [ { text: "Сказать: «Я не обязан(а) соответствовать»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Согласиться и расстроиться", health: -15, energy: -10, msg: "Ты принял(а) чужую вину." }, { text: "Промолчать", health: -10, energy: -5, msg: "Ты подавил(а) эмоции." } ] },
+            { text: "Кто-то исчезает после того, как ты помог(ла) ему", options: [ { text: "Отпустить", health: 10, energy: -5, msg: "Ты выбрал(а) покой." }, { text: "Обидеться и позвонить", health: -10, energy: -10, msg: "Ты накрутил(а) себя." }, { text: "Написать гневное сообщение", health: -10, energy: -15, msg: "Ты тратишь энергию." } ] },
+            { text: "Тебя заставляют чувствовать вину за прошлое", options: [ { text: "Сказать: «Прошлое не определяет меня»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты принял(а) чужую вину." }, { text: "Начать оправдываться", health: -10, energy: -10, msg: "Ты тратишь энергию." } ] },
+            { text: "Кто-то давит на жалость, чтобы получить желаемое", options: [ { text: "Сказать: «Это манипуляция»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Поддаться", health: -20, energy: -15, msg: "Ты нарушил(а) границы." }, { text: "Уйти", health: 0, energy: -5, msg: "Ты избежал(а) конфликта." } ] },
+            { text: "Тебя игнорируют, когда ты говоришь о границах", options: [ { text: "Повторить еще раз твердо", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) гнев." }, { text: "Начать кричать", health: -10, energy: -15, msg: "Конфликт." } ] },
+            { text: "Друг зовет тебя «токсичным(ой)», когда ты защищаешься", options: [ { text: "Сказать: «Я защищаю свои границы»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты принял(а) чужую вину." }, { text: "Начать оправдываться", health: -10, energy: -10, msg: "Ты тратишь энергию." } ] },
+            { text: "Тебя заставляют извиняться за то, в чем ты не виноват(а)", options: [ { text: "Сказать: «Я не буду извиняться»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Извиниться", health: -15, energy: -10, msg: "Ты предал(а) себя." }, { text: "Промолчать", health: -10, energy: -5, msg: "Ты подавил(а) гнев." } ] },
+            { text: "Кто-то подшучивает над твоей внешностью", options: [ { text: "Сказать: «Это не смешно»", health: 15, energy: -5, msg: "Ты сохранил(а) границы." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) обиду." }, { text: "Заплакать", health: -5, energy: -10, msg: "Ты выразил(а) боль." } ] },
+            { text: "Тебя обвиняют в том, что ты «не стараешься»", options: [ { text: "Сказать: «Я делаю все, что могу»", health: 15, energy: -5, msg: "Ты защитил(а) себя." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты принял(а) чужую вину." }, { text: "Начать доказывать", health: -10, energy: -15, msg: "Ты тратишь энергию." } ] },
+            { text: "Друг не поддержал тебя в трудной ситуации", options: [ { text: "Сказать, что тебе было больно", health: 5, energy: -5, msg: "Ты выразил(а) чувства." }, { text: "Промолчать", health: -15, energy: -10, msg: "Ты подавил(а) обиду." }, { text: "Прекратить общение", health: 5, energy: -5, msg: "Ты выбрал(а) себя." } ] }
+        ];
+        function getRandomSocial() { return socialData[Math.floor(Math.random()*socialData.length)]; }
+// === БАЗА РАБОТЫ (50+) ===
+        const workTexts = [
+            "Начальник наорал на тебя при всех", "Ты сделал(а) отчет. Тебя похвалили", "Коллеги пьют чай без тебя", "Ты работаешь из дома в тишине", 
+            "Тебе дали премию", "Начальник дал срочное задание", "Коллега подставил тебя", "Ты опоздал(а) на работу", 
+            "Тебе повысили зарплату", "Ты устал(а) от рутины", "Тебя отчитали за чужую ошибку", "Тебе дали выходной", 
+            "Коллега попросил помощи", "Начальник не заметил стараний", "Тебе предложили повышение", "Тебя перевели в другой отдел", 
+            "Ты остался(ась) на сверхурочные", "Клиент наорал на тебя", "Коллеги устроили сюрприз", "Ты забыл(а) важный документ",
+            "Ты провалил(а) презентацию", "Тебя похвалили перед командой", "Коллега распустил сплетню", "Тебе не дали отпуск",
+            "Ты нашел(ла) ошибку в отчете", "Начальник вызвал «на ковер»", "Ты помог(ла) новичку", "Тебя назначили ответственным",
+            "Ты опоздал(а) на встречу", "Коллега занял твое место", "Тебе вернули долг", "Ты забыл(а) пароль",
+            "Тебя попросили выйти в выходной", "Ты получил(а) благодарность", "Начальник раскритиковал стиль", "Коллега поделился обедом",
+            "Тебя обвинили в краже идеи", "Ты нашел(ла) подработку", "Тебя перевели на удаленку", "Ты выиграл(а) спор",
+            "Тебя заставили переделывать", "Ты забыл(а) про встречу", "Тебе не оплатили переработку", "Коллега попросил соврать",
+            "Ты нашел(ла) клиента", "Тебе отказали в повышении", "Ты помог(ла) с отчетом", "Тебя раскритиковали за вид",
+            "Ты получил(а) должность", "Ты опоздал(а) на планерку", "Коллега забыл о твоей просьбе", "Тебе дали сложный проект",
+            "Ты справился(ась) с задачей", "Тебя обвинили в чужой ошибке", "Начальник похвалил в личном чате", "Ты забыл(а) отправить письмо",
+            "Коллега попросил подменить", "Тебе дали отгул", "Ты проспал(а) на работу", "Тебе не дали премию",
+            "Коллега поделился идеей", "Ты выиграл(а) в конкурсе", "Тебя перевели в другой кабинет", "Коллега обманул тебя",
+            "Ты забыл(а) про день рождения коллеги", "Тебя похвалили за скорость", "Ты сломал(а) принтер", "Тебе вернули украденную вещь",
+            "Коллега попросил о помощи в личном", "Ты опоздал(а) на обед", "Тебе дали дополнительный выходной", "Коллега рассказал сплетню",
+            "Ты нашел(ла) общий язык с начальником", "Тебя попросили остаться после работы", "Ты забыл(а) про отчет", "Тебе дали премию за проект"
+        ];
+// === UI ===
+        function updateUI() {
+            document.getElementById('health-bar').style.width = Math.max(0, Math.min(100, player.health)) + '%';
+            document.getElementById('energy-bar').style.width = Math.max(0, Math.min(100, player.energy)) + '%';
+            document.getElementById('reflection-bar').style.width = Math.max(0, Math.min(100, player.reflection)) + '%';
+            document.getElementById('calm-bar').style.width = Math.max(0, Math.min(100, player.calm)) + '%';
+            document.getElementById('hunger-bar').style.width = Math.max(0, Math.min(100, player.hunger)) + '%';
+            document.getElementById('money-display').innerText = `💰 Баланс: ${player.money} руб.`;
+
+            const indicator = document.getElementById('level-indicator');
+            if (player.stage === 1) { indicator.className = "level-indicator level-hard"; indicator.innerText = "УРОВЕНЬ 1: ТЯЖЕЛАЯ ДЕПРЕССИЯ"; }
+            else if (player.stage === 2) { indicator.className = "level-indicator level-medium"; indicator.innerText = "УРОВЕНЬ 2: СРЕДНЯЯ ДЕПРЕССИЯ"; }
+            else if (player.stage === 3) { indicator.className = "level-indicator level-light"; indicator.innerText = "УРОВЕНЬ 3: ЛЕГКАЯ ДЕПРЕССИЯ"; }
+            else if (player.stage === 4) { indicator.className = "level-indicator level-remission"; indicator.innerText = "УРОВЕНЬ 4: РЕМИССИЯ"; }
+
+            const critic = document.getElementById('critic-overlay');
+            if (player.health < 30) critic.classList.add('critic-active'); else critic.classList.remove('critic-active');
+        }
+
+        // === ВЫБОР ДЕЙСТВИЯ ===
+        function selectAction(action) {
+            if (player.actionsTaken.length >= player.maxActions) return;
+            if (player.actionsTaken.includes(action)) return;
+
+            player.actionsTaken.push(action);
+            document.querySelectorAll('.action-btn').forEach(btn => {
+                if(btn.getAttribute('onclick').includes(action)) btn.classList.add('selected');
+            });
+
+            if (player.todayEvent.includes("ничтожество") || player.todayEvent.includes("не хочу жить") || player.todayEvent.includes("травму")) {
+                player.eventPenalty = 0.6; player.eventBonus = 0;
+            } else if (player.todayEvent.includes("сорвался") || player.todayEvent.includes("кошмар")) {
+                player.eventPenalty = 0.8; player.eventBonus = 0;
+            } else if (player.todayEvent.includes("похвалили") || player.todayEvent.includes("комплимент") || player.todayEvent.includes("премию") || player.todayEvent.includes("закат")) {
+                player.eventPenalty = 1.0; player.eventBonus = 0.2;
+            } else {
+                player.eventPenalty = 1.0; player.eventBonus = 0;
+            }
+
+            if (action === 'social') { openSocial(); }
+            else if (action === 'analyze') { openCBT(); }
+            else if (action === 'work') { openWork(); }
+            else if (action === 'rest') { openRest(); }
+            else { openActionModal(action); }
+        }
+
+        // === РАБОТА ===
+        function openWork() {
+            const title = document.getElementById('action-modal-title');
+            const desc = document.getElementById('action-modal-desc');
+            const opts = document.getElementById('action-modal-options');
+            opts.innerHTML = "";
+
+            title.innerText = "💼 Работа: как отработаешь смену?";
+            desc.innerText = "Ты уже на работе. Твое состояние влияет на результат.";
+            
+            let healthFactor = player.health / 100;
+            let basePay = 1000;
+            let penalty = 1;
+
+            if (healthFactor < 0.3) { penalty = 0.5; }
+            else if (healthFactor > 0.7) { penalty = 1.2; }
+
+            const options = [
+                { text: "Отработать всю смену", energy: -25, health: -10, money: Math.floor(basePay * penalty) },
+                { text: "Отработать половину смены", energy: -15, health: -5, money: Math.floor(basePay * 0.5 * penalty) },
+                { text: "Попросить коллегу заменить", energy: -5, health: 0, money: Math.floor(basePay * 0.2 * penalty) },
+                { text: "Прогулять остаток смены", energy: 10, health: 5, money: 0 }
+            ];
+
+            options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "choice-btn";
+                b.innerText = opt.text;
+                b.onclick = () => {
+                    const eventResult = workTexts[Math.floor(Math.random() * workTexts.length)];
+                    player.money += opt.money;
+                    player.energy = Math.max(0, Math.min(100, player.energy + opt.energy));
+                    player.health = Math.max(0, Math.min(100, player.health + opt.health));
+                    player.hunger = Math.max(0, Math.min(100, player.hunger - 10));
+                    
+                    document.getElementById('action-modal').classList.add('hidden');
+                    document.getElementById('status-msg').innerText = `Итог дня: ${eventResult}. Заработано: ${opt.money} руб.`;
+                    updateUI(); checkDayEnd();
+                };
+                opts.appendChild(b);
+            });
+            document.getElementById('action-modal').classList.remove('hidden');
+        }
+
+        // === СОН / СПОРТ / ЕДА ===
+        function openActionModal(type) {
+            const title = document.getElementById('action-modal-title');
+            const desc = document.getElementById('action-modal-desc');
+            const opts = document.getElementById('action-modal-options');
+            opts.innerHTML = "";
+
+            let options = [];
+            let baseEff = (player.stage === 1 ? 0.5 : (player.stage === 2 ? 0.8 : 1));
+            let eff = baseEff * (player.eventPenalty + player.eventBonus);
+
+            if (type === 'sleep') {
+                title.innerText = "🛌 Сон";
+                desc.innerText = "Сколько ты будешь спать? (Эффективность: " + Math.round(eff*100) + "%)";
+                options = [
+                    { text: "Поспать 4 часа (мало)", energy: 10 * eff, health: -5, hunger: -5, msg: "Мало сна. Мозг не очистился." },
+                    { text: "Поспать 8 часов (норма)", energy: 20 * eff, health: 5 * eff, hunger: -10, msg: "Нормальный сон. Восстановление." },
+                    { text: "Поспать 12 часов (сбитый режим)", energy: 15 * eff, health: -10, hunger: -15, msg: "Сбитый режим. Чувство вины." }
+                ];
+            } else if (type === 'train') {
+                title.innerText = "🏋️ Спорт";
+                desc.innerText = "Физическая нагрузка. (Эффективность: " + Math.round(eff*100) + "%)";
+                options = [
+                    { text: "Легкая прогулка (15 мин)", energy: 5, health: 10 * eff, hunger: -10, msg: "Прогулка. Немного дофамина." },
+                    { text: "Интенсивная тренировка (1 час)", energy: -20, health: 25 * eff, hunger: -20, msg: "Тренировка. BDNF. Кортизол сожжен." },
+                    { text: "Йога/растяжка", energy: 0, health: 15 * eff, hunger: -5, msg: "Растяжка. Расслабление." }
+                ];
+            } else if (type === 'food') {
+                title.innerText = "🍔 Магазин";
+                desc.innerText = "Что купишь? У тебя " + player.money + " руб. (Голод: " + player.hunger + "%)";
+                options = [
+                    { text: "Дешевая еда (фастфуд) - 200 руб", energy: 15, health: -10, money: -200, hunger: 30, msg: "Быстрый дофамин, потом тяжесть." },
+                    { text: "Здоровая еда (белок, овощи) - 800 руб", energy: 10, health: 15 * eff, money: -800, hunger: 40, msg: "Стабильная энергия." },
+                    { text: "Вкусная еда (деликатес) - 1500 руб", energy: 20, health: 5, money: -1500, hunger: 50, msg: "Ты почувствовал(а) радость от еды. Но дорого." },
+                    { text: "Пропустить еду (голод)", energy: -15, health: -5, money: 0, hunger: -20, msg: "Голод. Агрессия." }
+                ];
+            }
+
+            options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "choice-btn";
+                b.innerText = opt.text;
+                b.onclick = () => {
+                    if (opt.money && player.money + opt.money < 0) { alert("Мало денег!"); return; }
+                    player.money += opt.money || 0;
+                    player.energy = Math.max(0, Math.min(100, player.energy + opt.energy));
+                    player.health = Math.max(0, Math.min(100, player.health + opt.health));
+                    player.hunger = Math.max(0, Math.min(100, player.hunger + (opt.hunger || 0)));
+                    document.getElementById('action-modal').classList.add('hidden');
+                    document.getElementById('status-msg').innerText = opt.msg;
+                    updateUI(); checkDayEnd();
+                };
+                opts.appendChild(b);
+            });
+            document.getElementById('action-modal').classList.remove('hidden');
+        }
+
+        // === ОТДЫХ ===
+        function openRest() {
+            const title = document.getElementById('action-modal-title');
+            const desc = document.getElementById('action-modal-desc');
+            const opts = document.getElementById('action-modal-options');
+            opts.innerHTML = "";
+
+            title.innerText = "📺 Отдых (сериалы/игры)";
+            desc.innerText = "Быстрый дофамин. Но он не решает проблем.";
+            
+            const options = [
+                { text: "Посмотреть сериал (2 часа)", energy: -5, health: 5, hunger: -5, msg: "Ты отвлекся(ась). Но проблема осталась." },
+                { text: "Поиграть в игру (3 часа)", energy: -10, health: 0, hunger: -10, msg: "Ты убил(а) время. Чувство пустоты." },
+                { text: "Залипнуть в соцсетях (1 час)", energy: -5, health: -5, hunger: -5, msg: "Ты сравнил(а) себя с другими. Стало хуже." }
+            ];
+
+            options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "choice-btn";
+                b.innerText = opt.text;
+                b.onclick = () => {
+                    player.energy = Math.max(0, Math.min(100, player.energy + opt.energy));
+                    player.health = Math.max(0, Math.min(100, player.health + opt.health));
+                    player.hunger = Math.max(0, Math.min(100, player.hunger + (opt.hunger || 0)));
+                    document.getElementById('action-modal').classList.add('hidden');
+                    document.getElementById('status-msg').innerText = opt.msg;
+                    updateUI(); checkDayEnd();
+                };
+                opts.appendChild(b);
+            });
+            document.getElementById('action-modal').classList.remove('hidden');
+        }
+// === КПТ ДНЕВНИК ===
+        function openCBT() {
+            const cbt = getRandomCBT();
+            document.getElementById('diary-situation').innerText = cbt.situation;
+            document.getElementById('diary-thought').innerText = cbt.thought;
+            
+            const opts = document.getElementById('diary-options');
+            opts.innerHTML = "";
+            cbt.options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "choice-btn";
+                b.innerText = opt;
+                b.onclick = () => {
+                    document.getElementById('diary-options').classList.add('hidden');
+                    document.getElementById('diary-result').classList.remove('hidden');
+                    const fb = document.getElementById('diary-feedback');
+                    if (opt === cbt.correct) {
+                        fb.innerText = cbt.explanation;
+                        fb.className = "feedback-correct";
+                        player.reflection += 20; player.calm = Math.min(100, player.calm + 10);
+                    } else {
+                        fb.innerText = "Неверно. Правильно: " + cbt.correct + ". " + cbt.explanation;
+                        fb.className = "feedback-wrong";
+                        player.health -= 5;
+                    }
+                    updateUI();
+                };
+                opts.appendChild(b);
+            });
+            document.getElementById('diary-result').classList.add('hidden');
+            opts.classList.remove('hidden');
+            document.getElementById('diary-modal').classList.remove('hidden');
+        }
+
+        function closeDiary() { 
+            document.getElementById('diary-modal').classList.add('hidden'); 
+            checkDayEnd(); 
+        }
+
+        // === ОБЩЕНИЕ ===
+        function openSocial() {
+            const sc = getRandomSocial();
+            document.getElementById('social-situation').innerText = sc.text + (player.eventPenalty < 1 ? " (Ты истощен(а), реакция замедлена)" : "");
+            const opts = document.getElementById('social-options');
+            opts.innerHTML = "";
+            
+            sc.options.forEach(opt => {
+                const b = document.createElement('button');
+                b.className = "choice-btn";
+                b.innerText = opt.text;
+                b.onclick = () => {
+                    const mult = player.eventPenalty + player.eventBonus;
+                    player.health = Math.max(0, Math.min(100, player.health + Math.floor((opt.health || 0) * mult)));
+                    player.energy = Math.max(0, Math.min(100, player.energy + Math.floor((opt.energy || 0) * mult)));
+                    player.reflection += opt.reflection || 0;
+                    player.hunger = Math.max(0, Math.min(100, player.hunger - 5));
+                    
+                    document.getElementById('social-modal').classList.add('hidden');
+                    document.getElementById('status-msg').innerText = opt.msg;
+                    updateUI(); checkDayEnd();
+                };
+                opts.appendChild(b);
+            });
+            document.getElementById('social-modal').classList.remove('hidden');
+        }
+
+        // === КОНЕЦ ДНЯ ===
+        function checkDayEnd() {
+            if (player.health <= 0) { gameOver("депрессия"); return; }
+            if (player.energy <= 0) { gameOver("истощение"); return; }
+            if (player.calm <= 0) { gameOver("нервный срыв"); return; }
+            if (player.hunger <= 0) { gameOver("голод"); return; }
+            
+            if (player.actionsTaken.length === player.maxActions) {
+                document.getElementById('actions-grid').classList.add('hidden');
+                document.getElementById('next-day-btn').classList.remove('hidden');
+            }
+        }
+
+        // === СМЕНА ДНЯ ===
+        function nextDay() {
+            player.day++;
+            player.actionsTaken = [];
+            document.getElementById('actions-grid').classList.remove('hidden');
+            document.querySelectorAll('.action-btn').forEach(btn => { btn.classList.remove('selected'); btn.disabled = false; });
+            document.getElementById('next-day-btn').classList.add('hidden');
+
+            // Голод: если не поел, здоровье падает
+            if (player.hunger < 30) {
+                player.health -= 10;
+                player.energy -= 10;
+                document.getElementById('status-msg').innerText = "Ты голоден! Здоровье и энергия падают.";
+            }
+
+            // Восстановление энергии
+            player.energy = Math.min(100, player.energy + (player.stage * 5));
+            player.hunger = Math.max(0, player.hunger - 5);
+            
+            // Генерируем новое событие
+            player.todayEvent = getRandomEvent();
+            document.getElementById('story-text').innerText = player.todayEvent;
+
+            // Влияние события на самочувствие
+            if (player.todayEvent.includes("ничтожество") || player.todayEvent.includes("не хочу жить") || player.todayEvent.includes("травму")) {
+                player.health -= 5; player.calm -= 10;
+                document.getElementById('story-text').innerText += " (Внутренний критик атакует. Здоровье -5, Спокойствие -10)";
+            } else if (player.todayEvent.includes("похвалили") || player.todayEvent.includes("премию") || player.todayEvent.includes("комплимент") || player.todayEvent.includes("закат")) {
+                player.health += 5; player.calm += 10;
+                document.getElementById('story-text').innerText += " (Приятное событие. Здоровье +5, Спокойствие +10)";
+            }
+
+            player.health = Math.max(0, Math.min(100, player.health));
+            player.calm = Math.max(0, Math.min(100, player.calm));
+
+            // Проверка на повышение уровня (Эволюция)
+            if (player.reflection >= player.reflectionNeeded) {
+                player.stage++;
+                player.reflection = 0;
+                player.calm = Math.min(100, player.calm + 20);
+                player.health = Math.min(100, player.health + 30);
+                
+                if (player.stage === 2) {
+                    player.reflectionNeeded = 200;
+                    document.getElementById('story-text').innerText = "🎉 Уровень 2: Средняя депрессия. Симптомы ослабли. Теперь нужно набрать 200 рефлексии.";
+                } else if (player.stage === 3) {
+                    player.reflectionNeeded = 300;
+                    document.getElementById('story-text').innerText = "🎉 Уровень 3: Легкая депрессия. Ты видишь свет. Нужно набрать 300 рефлексии.";
+                } else if (player.stage === 4) { winGame(); return; }
+            }
+
+            // Случайное ухудшение в тяжелой стадии
+            if (player.stage === 1 && Math.random() > 0.6) {
+                player.health -= 5;
+                document.getElementById('story-text').innerText += " (Ты чувствуешь слабость. Здоровье -5)";
+            }
+
+            updateUI();
+        }
+
+        // === КОНЕЦ ИГРЫ ===
+        function gameOver(reason) {
+            document.getElementById('death-reason').innerText = "Причина: " + reason + ". Твой организм не выдержал.";
+            document.getElementById('death-modal').classList.remove('hidden');
+            document.querySelectorAll('.modal').forEach(m => { if(m.id !== 'death-modal') m.classList.add('hidden'); });
+        }
+
+        function winGame() {
+            document.getElementById('win-modal').classList.remove('hidden');
+            document.querySelectorAll('.modal').forEach(m => { if(m.id !== 'win-modal') m.classList.add('hidden'); });
+        }
+
+        // Запуск интерфейса при загрузке
+        updateUI();
+    </script>
+</body>
+</html>
